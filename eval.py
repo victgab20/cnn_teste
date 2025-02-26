@@ -21,6 +21,8 @@ from nltk import tokenize
 import torch.optim as optim
 
 from sklearn.metrics import classification_report
+
+from sklearn.metrics import precision_score, recall_score, f1_score
 import torchtext
  # Substitua pelo nome da classe do seu modelo
 import torch
@@ -233,7 +235,7 @@ VECTORS = torch.cat([VECTORS, extra_vector], dim=0)
 model = CNN(INPUT_DIM, EMBEDDING_DIM, N_FILTERS, FILTER_SIZES, OUTPUT_DIM, DROPOUT, VECTORS)
 
 # Carregar os pesos do modelo salvo
-model.load_state_dict(torch.load("cnn.pt", map_location=device))
+model.load_state_dict(torch.load("cnn_apps.pt", map_location=device))
 model.to(device)
 
 criterion = nn.BCEWithLogitsLoss()
@@ -245,35 +247,60 @@ def binary_accuracy(preds, y):
     rounded_preds = torch.round(torch.sigmoid(preds))
     correct = (rounded_preds == y).float()
     acc = correct.sum() / len(correct)
-    return acc
+    return acc, rounded_preds
 
 def evaluate(model, iterator, criterion):
     epoch_loss = 0
-    epoch_acc = 0
+    total_correct = 0
+    total_samples = 0
     total_predictions = []
+    total_labels = []
+
     model.eval()
-
+    
     with torch.no_grad():
-        for batch in tqdm.tqdm(iterator, desc='evaluating...'):
-            # Acessa os elementos do batch
-            texts = batch[0]  # O tensor de entrada
-            helpfulness = batch[1]  # O tensor de rótulos
+        for batch in iterator:
+            texts = batch[0]
+            helpfulness = batch[1]
 
-            predictions = model(texts.to(device)).squeeze(1)
-            total_predictions.extend(p.item() for p in predictions)
+            predictions = model(texts.to(device)).squeeze(1)  # Cuidado com o squeeze
+            rounded_preds = torch.round(torch.sigmoid(predictions)).cpu().numpy()
+            labels = helpfulness.cpu().numpy()
+
+            total_predictions.extend(rounded_preds)
+            total_labels.extend(labels)
 
             loss = criterion(predictions, helpfulness.to(device))
-            acc = binary_accuracy(predictions, helpfulness.to(device))
-            epoch_loss += loss.item()
-            epoch_acc += acc.item()
+            correct = (rounded_preds == labels).sum()  # Contagem de acertos
 
-    return epoch_loss / len(iterator), epoch_acc / len(iterator), total_predictions
+            epoch_loss += loss.item()
+            total_correct += correct
+            total_samples += len(labels)
+
+    # Calcular métricas
+    precision = precision_score(total_labels, total_predictions, zero_division=0)
+    recall = recall_score(total_labels, total_predictions, zero_division=0)
+    f1 = f1_score(total_labels, total_predictions, zero_division=0)
+    epoch_acc = total_correct / total_samples  # Correção da acurácia
+
+    return epoch_loss / len(iterator), epoch_acc, precision, recall, f1
 
 
 N_EPOCHS = 5
 
 for epoch in range(N_EPOCHS):
-    valid_loss, valid_acc, _  = evaluate(model, valid_iterator, criterion)
+    valid_loss, valid_acc, precision, recall, f1 = evaluate(model, valid_iterator, criterion)
 
     print(f'Epoch: {epoch+1:02}')
     print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc*100:.2f}%')
+    print(f'\t Precision: {precision:.3f} | Recall: {recall:.3f} | F1-score: {f1:.3f}')
+
+
+N_EPOCHS = 5
+
+for epoch in range(N_EPOCHS):
+    valid_loss, valid_acc, precision, recall, f1 = evaluate(model, valid_iterator, criterion)
+
+    print(f'Epoch: {epoch+1:02}')
+    print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc*100:.2f}%')
+    print(f'\t Precision: {precision:.3f} | Recall: {recall:.3f} | F1-score: {f1:.3f}')

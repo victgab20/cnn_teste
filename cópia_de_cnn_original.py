@@ -281,7 +281,7 @@ def process_splits(path, BATCH_SIZE, device, glove_path):
     return train_loader, valid_loader, test_loader, embeddings
 
 # Defina os parâmetros antes de chamar a função
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 glove_path = f"{path}/glove_s300.txt"  # Defina o caminho correto

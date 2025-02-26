@@ -4,7 +4,7 @@ from imblearn.under_sampling import RandomUnderSampler
 path = r"C:\Users\victo\Downloads\corpus\labeled\\"  
 
 # Lista de arquivos a processar
-datasets = ['train_apps.pkl', 'test_apps.pkl', 'dev_apps.pkl']
+datasets = ['train_filmes.pkl', 'test_filmes.pkl', 'dev_filmes.pkl']
 
 for dataset in datasets:
     # Carregar o arquivo

@@ -1,0 +1,29 @@
+
+
+Resultados da CNN: cnn_filmes_1.pt
+model = CNN_Multitask(vocab_size, 300, n_filters, filter_sizes, dropout, vectors)
+
+num_epochs = 1
+learning_rate = 0.001
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+model.load_state_dict(torch.load('cnn_filmes_1.pt', map_location=device))
+model.to(device)
+
+validate_model(model, train_loader, device)
+
+Validation - Stars: Precision: 0.74, Recall: 0.97, F1: 0.84
+Validation - Helpfulness: Precision: 0.58, Recall: 0.68, F1: 0.63
+
+
+
+Resultados da cnn: cnn_apps_1:
+
+Validation - Stars: Precision: 0.72, Recall: 0.86, F1: 0.78
+Validation - Helpfulness: Precision: 0.75, Recall: 0.70, F1: 0.72
+
+
+
+
+
+

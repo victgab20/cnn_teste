@@ -40,18 +40,16 @@ import torchtext
 # from torchtext.datasets import TabularDataset
 # from torchtext.data import Field, LabelField
 from torch.utils.data import DataLoader, Dataset
-from torchtext.data.utils import get_tokenizer
 
-
-from imblearn.under_sampling import RandomUnderSampler
 import gensim
 
 path = r"C:\Users\victo\Downloads\corpus\labeled"
 
 class TextDataset(Dataset):
-    def __init__(self, csv_file, tokenizer):
+    def __init__(self, csv_file, tokenizer, max_length=512):
         self.data = pd.read_csv(csv_file)  # Lê o CSV com pandas
         self.tokenizer = tokenizer
+        self.max_length = max_length  # Defina o comprimento máximo da sequência
     
     def __len__(self):
         return len(self.data)
@@ -66,21 +64,13 @@ class TextDataset(Dataset):
         else:
             text = str(text)  # Certifique-se de que é uma string
 
-        # Tokeniza o texto
+        # Tokeniza o texto com padding automático
         tokenized_text = self.tokenizer(text)
 
         # Recupera a ajuda (ou outra coluna que você precisa)
         label = torch.tensor(self.data.iloc[idx]['helpfulness'], dtype=torch.float)
 
-        return tokenized_text, label
-
-dataset_test_apps = pd.read_pickle(f"{path}/test_apps.pkl")
-dataset_train_apps = pd.read_pickle(f"{path}//train_apps.pkl")
-dataset_dev_apps= pd.read_pickle(f"{path}/dev_apps.pkl")
-
-dataset_test = pd.read_pickle(f"{path}/test_filmes.pkl")
-dataset_train = pd.read_pickle(f"{path}/train_filmes.pkl")
-dataset_dev = pd.read_pickle(f"{path}/dev_filmes.pkl")
+        return tokenized_text['input_ids'].squeeze(0), label
 
 ### Reprodutibilidade ###
 SEED = 1234
@@ -90,193 +80,48 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 #########################
-
-# # https://drive.google.com/file/d/1Fqjb3XVNc6zpzfoMswNLOn4cO4Vs80Tq/view?usp=sharing TRAIN
-# !gdown --id 1Fqjb3XVNc6zpzfoMswNLOn4cO4Vs80Tq
-
-# # https://drive.google.com/file/d/1jxRnHkhCbTaQnhEblB1lMp0P9KF-OyxX/view?usp=sharing TEST
-# !gdown --id 1jxRnHkhCbTaQnhEblB1lMp0P9KF-OyxX
-
-# # https://drive.google.com/file/d/1mEFGzDwZys5quIjHRtWFuDsqc7DkMYyG/view?usp=sharing DEV
-# !gdown --id 1mEFGzDwZys5quIjHRtWFuDsqc7DkMYyG
-
 word_to_index = {"<pad>": 0}  # Inicializa o dicionário com o token de padding
 
-def tokenizer(text):
-    # Tokeniza o texto usando o NLTK
-    tokenized = tokenize.word_tokenize(text, language='portuguese')
+# def tokenizer(text):
+#     # Tokeniza o texto usando o NLTK
+#     tokenized = tokenize.word_tokenize(text, language='portuguese')
     
-    # Atualiza o dicionário word_to_index com os novos tokens
-    for token in tokenized:
-        if token not in word_to_index:
-            word_to_index[token] = len(word_to_index)  # Atribui um índice incremental
+#     # Atualiza o dicionário word_to_index com os novos tokens
+#     for token in tokenized:
+#         if token not in word_to_index:
+#             word_to_index[token] = len(word_to_index)  # Atribui um índice incremental
 
-    # Se o número de tokens for menor que 5, preenche com <pad>
-    if len(tokenized) < 5:
-        tokenized += ['<pad>'] * (5 - len(tokenized))
+#     # Se o número de tokens for menor que 5, preenche com <pad>
+#     if len(tokenized) < 5:
+#         tokenized += ['<pad>'] * (5 - len(tokenized))
     
-    return tokenized
+#     return tokenized
 
+tokenizer = lambda text: word_tokenize(text, language='portuguese')
 
-
-# # https://drive.google.com/file/d/1QMf5450Xrxm0oxmBCLkReNijljOvBUpL/view?usp=sharing
-# !gdown --id 1QMf5450Xrxm0oxmBCLkReNijljOvBUpL
-
-# # https://drive.google.com/file/d/1_EC87bm9D8Tv1qwlzk7hOmC5fttxJDcP/view?usp=sharing
-# !gdown --id 1_EC87bm9D8Tv1qwlzk7hOmC5fttxJDcP
-
-
-# df = pd.read_pickle(path+'/test_filmes.pkl')
-# df = df[['text', 'helpfulness']]
-# # df = df[['helpfulness']]
-# # df.head()
-
-# rus = RandomUnderSampler(random_state=2021)
-# df = df.dropna()
-# text = df[['text']]
-# label = df[['helpfulness']]
-# features = []
-
-# text, label = rus.fit_resample(text, label)
-
-# for t, l in zip(text, label):
-#   d = {}
-#   d['text'] = t[0]
-#   d['helpfulness'] = l[0]
-#   features.append(d)
-
-# bdf = pd.DataFrame(df, columns=['text', 'helpfulness'])
-
-# bdf.to_csv(path+'/balanced_test_filmes.csv', index=False)
-
-
-# df = pd.read_pickle(path+'/test_apps.pkl')
-# rus = RandomUnderSampler(random_state=2021)
-# df = df.dropna()
-# text = df[['text']]
-# label = df[['helpfulness']]
-# features = []
-
-# text, label = rus.fit_resample(text, label)
-
-# for t, l in zip(text, label):
-#   d = {}
-#   d['text'] = t[0]
-#   d['helpfulness'] = l[0]
-#   features.append(d)
-
-
-
-# bdf = pd.DataFrame(df, columns=['text', 'helpfulness'])
-
-# bdf.to_csv(path+'/balanced_test_apps.csv', index=False)
-
-# # df.to_csv(path+'balanced_train_apps.csv', header=True)
-
-
-# df = pd.read_pickle(path+'/train_filmes.pkl')
-# rus = RandomUnderSampler(random_state=2021)
-# df = df.dropna()
-# text = df[['text']]
-# label = df[['helpfulness']]
-# features = []
-
-# text, label = rus.fit_resample(text, label)
-
-# for t, l in zip(text, label):
-#   d = {}
-#   d['text'] = t[0]
-#   d['helpfulness'] = l[0]
-#   features.append(d)
-
-# bdf = pd.DataFrame(df, columns=['text', 'helpfulness'])
-
-# bdf.to_csv(path+'/balanced_train_filmes.csv', index=False)
-
-
-# df = pd.read_pickle(path+'/dev_filmes.pkl')
-# rus = RandomUnderSampler(random_state=2021)
-# df = df.dropna()
-# text = df[['text']]
-# label = df[['helpfulness']]
-# features = []
-
-# text, label = rus.fit_resample(text, label)
-
-# for t, l in zip(text, label):
-#   d = {}
-#   d['text'] = t[0]
-#   d['helpfulness'] = l[0]
-#   features.append(d)
-
-
-# bdf = pd.DataFrame(df, columns=['text', 'helpfulness'])
-
-# bdf.to_csv(path+'/balanced_dev_filmes.csv', index=False)
-
-# from torchtext.vocab import Vectors
-
-#path = "drive/MyDrive/Colab Notebooks/Helpfulness/"
-
-
-# def process_splits(path, BATCH_SIZE, device):
-#     tokenizer = get_tokenizer('basic_english')  # ou o tokenizer que você estiver usando
-#     text = Field(tokenize=tokenizer, batch_first=True)
-#     label = LabelField(dtype=torch.float)
-
-#     # Carregando os dados
-#     train, valid, test = TabularDataset.splits(
-#         path=path,
-#         train='balanced_train_filmes.csv',
-#         validation='balanced_dev_filmes.csv',
-#         test='balanced_test_filmes.csv',
-#         format='csv',
-#         fields=[('text', text), ('helpfulness', label)],
-#         skip_header=True
-#     )
-
-#     # Criar DataLoader para minibatches
-#     train_iterator = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
-#     valid_iterator = DataLoader(valid, batch_size=BATCH_SIZE)
-#     test_iterator = DataLoader(test, batch_size=BATCH_SIZE)
-
-#     return train_iterator, valid_iterator, test_iterator
-
-# criar minibatch
-def collate_batch(batch):
-    texts = [item[0] for item in batch]  # Extrair textos do batch
-    labels = [item[1] for item in batch]  # Extrair rótulos do batch
-
-    # Converter tokens para índices usando o vocabulário
-    texts = [[word_to_index.get(token, word_to_index["<pad>"]) for token in text] for text in texts]
-    
-    # Converter listas de índices para tensores
-    texts = [torch.tensor(text, dtype=torch.long) for text in texts]
-
-    # Padronizar o tamanho dos textos
-    texts = torch.nn.utils.rnn.pad_sequence(texts, batch_first=True, padding_value=0)
-    labels = torch.tensor(labels, dtype=torch.float)
-
-    return texts, labels
+def collate_fn(batch):
+    # Colapsa os dados em lotes
+    input_ids = torch.stack([item[0] for item in batch])  # Empilha os input_ids
+    labels = torch.stack([item[1] for item in batch])  # Empilha os rótulos
+    return input_ids, labels
 
 def process_splits(path, BATCH_SIZE, device, glove_path):
     nltk.download('punkt')  # Certifique-se de que o recurso 'punkt' está disponível
     # Usando o tokenizador para português
-    tokenizer = lambda text: word_tokenize(text, language='portuguese')
-
+#    tokenizer = lambda text: word_tokenize(text, language='portuguese')
     # Criando os datasets
-    train_dataset = TextDataset(path + '/balanced_train_filmes.csv', tokenizer)
-    valid_dataset = TextDataset(path + '/balanced_dev_filmes.csv', tokenizer)
-    test_dataset = TextDataset(path + '/balanced_test_filmes.csv', tokenizer)
+    train_dataset = TextDataset(path + '/balanced_train_apps.csv', tokenizer)
+    valid_dataset = TextDataset(path + '/balanced_dev_apps.csv', tokenizer)
+    test_dataset = TextDataset(path + '/balanced_test_apps.csv', tokenizer)
 
     # Carregando os embeddings do GloVe (arquivo local)
     print("Carregando os embeddings do GloVe...")
     embeddings = gensim.models.KeyedVectors.load_word2vec_format(glove_path, binary=False)
 
     # Criando os DataLoaders
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch)
-    valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,collate_fn=collate_fn)
+    valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False,collate_fn=collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False,collate_fn=collate_fn)
 
     return train_loader, valid_loader, test_loader, embeddings
 
@@ -292,82 +137,61 @@ train_iterator, valid_iterator, test_iterator, embeddings = process_splits(path,
 print(f"Palavras no vocabulário: {len(embeddings.index_to_key)}")
 print(f"Dimensão dos vetores: {embeddings.vector_size}")
 
-#train, val, test, text = process_splits()
-
-# process_splits()
-# BATCH_SIZE = 32
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# print("device-----")
-# print(dev)
-
-
-# Criar DataLoaders
-# train_iterator = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch)
-# valid_iterator = DataLoader(val, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch)
-# test_iterator = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch)
-
-class CNN(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, n_filters, filter_sizes, output_dim,
-                 dropout, vectors):
-
+class CNN_Multitask(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, n_filters, filter_sizes, output_dim_polarity, 
+                 output_dim_utility, dropout, vectors):
         super().__init__()
 
-        # 1 camada - embeddings
-        # self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx = pad_idx)
+        # Camada de Embeddings
         self.embedding = nn.Embedding.from_pretrained(vectors, freeze=True)
 
         # 3 camadas de convolução
-        self.conv_0 = nn.Conv2d(in_channels = 1,
-                                out_channels = n_filters,
-                                kernel_size = (filter_sizes[0], embedding_dim))
+        self.conv_0 = nn.Conv2d(in_channels=1, out_channels=n_filters, kernel_size=(filter_sizes[0], embedding_dim))
+        self.conv_1 = nn.Conv2d(in_channels=1, out_channels=n_filters, kernel_size=(filter_sizes[1], embedding_dim))
+        self.conv_2 = nn.Conv2d(in_channels=1, out_channels=n_filters, kernel_size=(filter_sizes[2], embedding_dim))
 
-        self.conv_1 = nn.Conv2d(in_channels = 1,
-                                out_channels = n_filters,
-                                kernel_size = (filter_sizes[1], embedding_dim))
-
-        self.conv_2 = nn.Conv2d(in_channels = 1,
-                                out_channels = n_filters,
-                                kernel_size = (filter_sizes[2], embedding_dim))
-
-        # A saída dos filtros alimenta uma mlp
+        # A saída dos filtros alimenta uma MLP
         self.fc = nn.Linear(len(filter_sizes) * n_filters, 32)
+        
+        # Camadas de saída para cada task
+        self.fc_polarity = nn.Linear(32, output_dim_polarity)  # Para a polaridade
+        self.fc_utility = nn.Linear(32, output_dim_utility)    # Para a utilidade da opinião
 
-        self.fc1 = nn.Linear(32, output_dim)
-
-        # dropout
+        # Dropout
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, text):
-
-        #text = [batch size, sent len]
+        # text = [batch size, sent len]
 
         embedded = self.embedding(text)
-
-        #embedded = [batch size, sent len, emb dim]
+        # embedded = [batch size, sent len, emb dim]
 
         embedded = embedded.unsqueeze(1)
-
-        #embedded = [batch size, 1, sent len, emb dim]
+        # embedded = [batch size, 1, sent len, emb dim]
 
         conved_0 = F.relu(self.conv_0(embedded).squeeze(3))
         conved_1 = F.relu(self.conv_1(embedded).squeeze(3))
         conved_2 = F.relu(self.conv_2(embedded).squeeze(3))
 
-        #conved_n = [batch size, n_filters, sent len - filter_sizes[n] + 1]
+        # conved_n = [batch size, n_filters, sent len - filter_sizes[n] + 1]
 
         pooled_0 = F.max_pool1d(conved_0, conved_0.shape[2]).squeeze(2)
         pooled_1 = F.max_pool1d(conved_1, conved_1.shape[2]).squeeze(2)
         pooled_2 = F.max_pool1d(conved_2, conved_2.shape[2]).squeeze(2)
 
-        #pooled_n = [batch size, n_filters]
+        # pooled_n = [batch size, n_filters]
 
-        cat = self.dropout(torch.cat((pooled_0, pooled_1, pooled_2), dim = 1))
+        cat = self.dropout(torch.cat((pooled_0, pooled_1, pooled_2), dim=1))
+        # cat = [batch size, n_filters * len(filter_sizes)]
 
-        #cat = [batch size, n_filters * len(filter_sizes)]
-
+        # Passa pela camada MLP
         out = F.relu(self.fc(cat))
 
-        return self.fc1(out)
+        # Saídas para as duas tasks
+        polarity_output = self.fc_polarity(out)  # Polaridade: binária
+        utility_output = self.fc_utility(out)    # Utilidade da opinião: binária
+
+        return polarity_output, utility_output
 
 INPUT_DIM = len(embeddings.key_to_index)  # Tamanho do vocabulário
 EMBEDDING_DIM = 300  # Dimensão dos vetores
@@ -398,7 +222,7 @@ def binary_accuracy(preds, y):
     return acc
 
 # Criando o modelo
-model = CNN(INPUT_DIM, EMBEDDING_DIM, N_FILTERS, FILTER_SIZES, OUTPUT_DIM, DROPOUT, VECTORS)
+model = CNN_Multitask(INPUT_DIM, EMBEDDING_DIM, N_FILTERS, FILTER_SIZES,1,1, DROPOUT, VECTORS)
 
 # Inicializando embeddings especiais
 if UNK_TOKEN in embeddings.key_to_index:
@@ -420,16 +244,26 @@ def train(model, iterator, optimizer, criterion):
     model.train()
 
     for batch in tqdm.tqdm(iterator, desc='training...'):
-        texts = batch[0]  # O tensor de entrada
-        helpfulness = batch[1]  # O tensor de rótulos
+        texts = batch[0]  # Entradas (textos)
+        helpfulness = batch[1]  # Rótulos de ajuda (ou utilidade)
+
         optimizer.zero_grad()
-        predictions = model(texts.to(device)).squeeze(1)
-        
+
+        # Fazendo as previsões para as duas tarefas
+        polarity_output, utility_output = model(texts.to(device))
+
         # Calcule a perda e a acurácia
-        loss = criterion(predictions, helpfulness.to(device))
-        acc = binary_accuracy(predictions, helpfulness.to(device))
+        loss_polarity = criterion(polarity_output.squeeze(1), helpfulness.to(device))  # Squeeze se necessário
+        loss_utility = criterion(utility_output.squeeze(1), helpfulness.to(device))  # Squeeze se necessário
+        loss = loss_polarity + loss_utility  # Combinação das perdas
+
+        acc_polarity = binary_accuracy(polarity_output, helpfulness.to(device))
+        acc_utility = binary_accuracy(utility_output, helpfulness.to(device))
+        acc = (acc_polarity + acc_utility) / 2  # Média das acurácias das duas tarefas
+
         loss.backward()
         optimizer.step()
+
         epoch_loss += loss.item()
         epoch_acc += acc.item()
 
@@ -443,21 +277,28 @@ def evaluate(model, iterator, criterion):
 
     with torch.no_grad():
         for batch in tqdm.tqdm(iterator, desc='evaluating...'):
-            # Acessa os elementos do batch
-            texts = batch[0]  # O tensor de entrada
-            helpfulness = batch[1]  # O tensor de rótulos
+            texts = batch[0]  # Entradas
+            helpfulness = batch[1]  # Rótulos
 
-            predictions = model(texts.to(device)).squeeze(1)
-            total_predictions.extend(p.item() for p in predictions)
+            # Fazendo as previsões para as duas tarefas
+            polarity_output, utility_output = model(texts.to(device))
 
-            loss = criterion(predictions, helpfulness.to(device))
-            acc = binary_accuracy(predictions, helpfulness.to(device))
+            # Armazenando as previsões
+            total_predictions.extend(p.item() for p in polarity_output)
+
+            # Calcule a perda e a acurácia
+            loss_polarity = criterion(polarity_output.squeeze(1), helpfulness.to(device))  # Squeeze se necessário
+            loss_utility = criterion(utility_output.squeeze(1), helpfulness.to(device))  # Squeeze se necessário
+            loss = loss_polarity + loss_utility
+
+            acc_polarity = binary_accuracy(polarity_output, helpfulness.to(device))
+            acc_utility = binary_accuracy(utility_output, helpfulness.to(device))
+            acc = (acc_polarity + acc_utility) / 2
+
             epoch_loss += loss.item()
             epoch_acc += acc.item()
 
-    return epoch_loss / len(iterator), epoch_acc / len(iterator), total_predictions
-
-# Treinamento do modelo
+    return epoch_loss / len(iterator), epoch_acc / len(iterator), total_predictions# Treinamento do modelo
 N_EPOCHS = 5
 best_valid_loss = float('inf')
 
@@ -467,25 +308,25 @@ for epoch in range(N_EPOCHS):
 
     if valid_loss < best_valid_loss:
         best_valid_loss = valid_loss
-        torch.save(model.state_dict(), 'cnn.pt')
+        torch.save(model.state_dict(), 'cnn_multitask_apps.pt')
 
     print(f'Epoch: {epoch+1:02}')
     print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.2f}%')
     print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc*100:.2f}%')
 
 # Carregar melhor modelo
-model.load_state_dict(torch.load('cnn.pt'))
+# model.load_state_dict(torch.load('cnn_multitask_apps.pt'))
 
-# Avaliação final
-test_loss, test_acc, predictions = evaluate(model, test_iterator, criterion)
-print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc*100:.2f}%')
+# # Avaliação final
+# test_loss, test_acc, predictions = evaluate(model, test_iterator, criterion)
+# print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc*100:.2f}%')
 
-# Classificação final
-preds = torch.FloatTensor(predictions)
-rounded_preds = torch.round(torch.sigmoid(preds))
+# # Classificação final
+# preds = torch.FloatTensor(predictions)
+# rounded_preds = torch.round(torch.sigmoid(preds))
 
-labels = [float(t.helpfulness) for t in test_iterator]
-print(classification_report(labels, rounded_preds.detach().numpy()))
+# labels = [float(t.helpfulness) for t in test_iterator]
+# print(classification_report(labels, rounded_preds.detach().numpy()))
 
 
 

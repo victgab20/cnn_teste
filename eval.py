@@ -121,27 +121,27 @@ def process_splits(path, BATCH_SIZE, device, glove_path):
     tokenizer = lambda text: word_tokenize(text, language='portuguese')
 
     # Criando os datasets
-    train_dataset = TextDataset(path + '/balanced_train_apps.csv', tokenizer)
+    #train_dataset = TextDataset(path + '/balanced_train_apps.csv', tokenizer)
     valid_dataset = TextDataset(path + '/balanced_dev_apps.csv', tokenizer)
-    test_dataset = TextDataset(path + '/balanced_test_apps.csv', tokenizer)
+    #test_dataset = TextDataset(path + '/balanced_test_filmes.csv', tokenizer)
 
     # Carregando os embeddings do GloVe (arquivo local)
     print("Carregando os embeddings do GloVe...")
     embeddings = gensim.models.KeyedVectors.load_word2vec_format(glove_path, binary=False)
 
     # Criando os DataLoaders
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch)
+    #train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_batch)
     valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch)
-
-    return train_loader, valid_loader, test_loader, embeddings
+    #test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_batch)
+    return valid_loader, embeddings
+    # return train_loader, valid_loader, test_loader, embeddings
 
 BATCH_SIZE = 32
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 glove_path = f"{path}/glove_s300.txt"  # Defina o caminho correto
 
-train_iterator, valid_iterator, test_iterator, embeddings = process_splits(path, BATCH_SIZE, device, glove_path)
+# train_iterator, valid_iterator, test_iterator, embeddings = process_splits(path, BATCH_SIZE, device, glove_path)
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # print(device)
@@ -151,7 +151,7 @@ train_iterator, valid_iterator, test_iterator, embeddings = process_splits(path,
 # Colocar o modelo em modo de avaliação
 
 
-train_iterator, valid_iterator, test_iterator, embeddings = process_splits(path, BATCH_SIZE, device, glove_path)
+valid_loader, embeddings = process_splits(path, BATCH_SIZE, device, glove_path)
 class CNN(nn.Module):
     def __init__(self, vocab_size, embedding_dim, n_filters, filter_sizes, output_dim,
                  dropout, vectors):
@@ -235,7 +235,7 @@ VECTORS = torch.cat([VECTORS, extra_vector], dim=0)
 model = CNN(INPUT_DIM, EMBEDDING_DIM, N_FILTERS, FILTER_SIZES, OUTPUT_DIM, DROPOUT, VECTORS)
 
 # Carregar os pesos do modelo salvo
-model.load_state_dict(torch.load("cnn_apps.pt", map_location=device))
+model.load_state_dict(torch.load("cnn.pt", map_location=device))
 model.to(device)
 
 criterion = nn.BCEWithLogitsLoss()
@@ -278,29 +278,17 @@ def evaluate(model, iterator, criterion):
             total_samples += len(labels)
 
     # Calcular métricas
-    precision = precision_score(total_labels, total_predictions, zero_division=0)
-    recall = recall_score(total_labels, total_predictions, zero_division=0)
-    f1 = f1_score(total_labels, total_predictions, zero_division=0)
+    precision = precision_score(total_labels, total_predictions, average='weighted')
+    recall = recall_score(total_labels, total_predictions,average='weighted')
+    f1 = f1_score(total_labels, total_predictions, average='weighted')
     epoch_acc = total_correct / total_samples  # Correção da acurácia
 
-    return epoch_loss / len(iterator), epoch_acc, precision, recall, f1
+    return  precision, recall, f1, epoch_acc
 
-
-N_EPOCHS = 5
-
-for epoch in range(N_EPOCHS):
-    valid_loss, valid_acc, precision, recall, f1 = evaluate(model, valid_iterator, criterion)
-
-    print(f'Epoch: {epoch+1:02}')
-    print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc*100:.2f}%')
-    print(f'\t Precision: {precision:.3f} | Recall: {recall:.3f} | F1-score: {f1:.3f}')
-
-
-N_EPOCHS = 5
+N_EPOCHS = 1
 
 for epoch in range(N_EPOCHS):
-    valid_loss, valid_acc, precision, recall, f1 = evaluate(model, valid_iterator, criterion)
+    precision, recall, f1, epoch_acc = evaluate(model, valid_loader, criterion)
 
     print(f'Epoch: {epoch+1:02}')
-    print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc*100:.2f}%')
-    print(f'\t Precision: {precision:.3f} | Recall: {recall:.3f} | F1-score: {f1:.3f}')
+    print(f'\t Precision: {precision:.3f} | Recall: {recall:.3f} | F1-score: {f1:.3f} | acc: {epoch_acc:.3f}')
